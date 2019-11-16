@@ -8,7 +8,6 @@ class Element(Object):
     This class implements generic Element, the parent class for all GUI elements.
     '''
     def __init__(self, name, style):
-        print(self.__class__.__name__)
         gui.elements[name] = self
         self.name = name
         self.style = style
