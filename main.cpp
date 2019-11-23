@@ -1,4 +1,5 @@
-//Odczyt kroków - serial port
+//Version3
+
 #include <hFramework.h>
 //#include "hCloudClient.h"
 #include <hMotor.h>
@@ -6,99 +7,186 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstring>
-#include <thread>
+#include <cmath>
 #include <hSensor.h>
-#include <Lego_Touch.h>
+#include <hSensors/Lego_Touch.h>
 
-using namespace hFramework;
+//Bufory
+char bufID[1] = {0};
+char bufTheta[5] = {0};
+char bufGamma[5] = {0};
+char bufZ[5] = {0};
+int id, val1, val2, valZ, enc1, enc2, enc3;
+hLegoSensor_simple ls(hSens6);
+hSensors::Lego_Touch sensor(ls);
+bool pressed = false;
 
-char buffer1[2] = {0xFF};
-char buffer2[2] = {0xFF};
-char buffer3[2] = {0xFF};
+// Regulatory
+hPIDRegulator reg1, reg2, reg3;
 
-int numBytes1, numBytes2, numBytes3, value1, value2, value3, j=0;
-int enc1, enc2, enc3;     //Enkodery
+void initReg() {
+    reg1.setScale(1);
+    reg1.setKP(100);
+    reg1.setKI(0.05);
+    reg1.setKD(1000);
+    reg1.dtMs = 5;
+    reg1.stableRange = 5;
+    reg1.stableTimes = 1;
+    reg2 = reg1;
+    reg3 = reg1;
+    hMot1.attachPositionRegulator(reg1);
+    hMot3.attachPositionRegulator(reg2);
+    hMot4.attachPositionRegulator(reg3);
+}
 
-int hMain(){
-    hLegoSensor_simple ls(hSens6);
-    hSensors::Lego_Touch sensor(ls);
-    bool pressed;
-    sys.setLogDev(&Serial);
-    hLED1.off();     //Start programu
-    hLED2.off();     //Wyłączenie diod
+
+int convert(char buf[], int num) {
+    int val = 0;
+    for(int i = 1; i < num; i++)val += (buf[i]-48)*pow(10, num-i-1);
+    if(buf[0]=='-')val *= -1;
+    //val = (buf[3]-48) + (buf[2]-48)*10 + (buf[1]-48)*100 + (buf[0]-48)*1000;
+    return val;
+}
+void readBuffer(char buf[], int number) {
+    int k = 0;
+    Serial.waitForData(INFINITE);
+    while(Serial.available() > 0 && (k < number)){
+        buf[k] = getchar();
+        k++;
+    }
+}
+
+void clearBuffers() {
+    bufID[0]=0;
+    for(int i=0;i<5;i++){
+        bufTheta[i] = bufGamma[i] = bufZ[0] = 0;
+    }
+}
+
+void resetEncoder () {
+    hMot1.resetEncoderCnt();
+    hMot3.resetEncoderCnt();
+    hMot4.resetEncoderCnt();
+    hMot1.rotAbs(0,400,false, INFINITE);
+    hMot3.rotAbs(0,400,false, INFINITE);
+    hMot4.rotAbs(0,400,false, INFINITE);
+}
+
+void initMotors() {
     hMot1.setEncoderPolarity(Polarity::Reversed);       //Motor nr 1 - przy podstawie
     hMot3.setEncoderPolarity(Polarity::Reversed);       //Motor nr 2 - człon nr 2
     hMot4.setEncoderPolarity(Polarity::Reversed);       //Motor nr 3 - oś Z
-    IServo &servo = hMot1.useAsServo();
-    servo.calibrate(-1800,700, 1800, 1500);
+    resetEncoder();
+}
 
+void halt() {
     while(true){
-        Serial.flushRx();   //Czyszczenie buforu przed pierwszym uruchomieniem
-        Serial.waitForData(INFINITE);
-        while(Serial.available()>0){
-            Serial.read(&buffer1[j], sizeof(buffer1), INFINITE);
-            j++;
+        pressed = sensor.isPressed();
+        if(pressed==true) {
+            sys.reset();
         }
-        numBytes1 = j;
-        j = 0;
-        Serial.waitForData(INFINITE);
-        while(Serial.available()>0){
-            Serial.read(&buffer2[j], sizeof(buffer2), INFINITE);
-            j++;
-        }
-        numBytes2 = j;
-        j = 0;
-        Serial.waitForData(INFINITE);
-        while(Serial.available()>0){
-            Serial.read(&buffer3[j], sizeof(buffer3), INFINITE);
-            j++;
-        }
-        Serial.flushRx();
-        numBytes3 = j;
-        j = 0;
-        sys.delay(50);
-        printf("Data read buffer 1: %s", buffer1);
-        printf("Data read buffer 2: %s", buffer2);
-        printf("Data read buffer 3: %s", buffer3);
-        //Konwersja
-        value1 = 0;
-        for(int i = 1; i >= 0;i--){
-            value1 += static_cast<int>(buffer1[i]);
-            if(i!=0)value1 = value1 << 8;
-        }
-        value2 = 0;
-        for(int i = 1; i >= 0;i--){
-            value2 += static_cast<int>(buffer2[i]);
-            if(i!=0)value2 = value2 << 8;
-        }
-        value3 = 0;
-        for(int i = 1; i >= 0;i--){
-            value3 += static_cast<int>(buffer3[i]);
-            if(i!=0)value3 = value3 << 8;
-        }
-        if(value1>32767)value1=value1-65536;
-        if(value2>32767)value2=value2-65536;
-        if(value3>32767)value3=value3-65536;
-        printf("Converted data - value 1: %d", value1);
-        printf("Converted data - value 2: %d", value2);
-        printf("Converted data - value 3: %d", value3);
-        if(value1<1500 && value2<1500 && value3<1000){
-            hMot1.rotAbs(value1, 200, false, INFINITE);
-            hMot3.rotAbs(value2, 200, false, INFINITE);
-            hMot4.rotAbs(value3);
-            printf("Moving");
-        }
+    }
+}
+
+void moveJoint() {
+    clearBuffers();
+    readBuffer(bufTheta, 5);
+    readBuffer(bufGamma, 5);
+    val1 = convert(bufTheta, 5);
+    val2 = convert(bufGamma, 5);
+    val1 *= -1;
+    printf("Converted data - value 1: %d\n", val1);
+    printf("Converted data - value 2: %d\n", val2);
+    hMot1.rotAbs(val1, 200, false, INFINITE);
+    hMot3.rotAbs(val2, 200, false, INFINITE);
+    hMot1.waitDone();
+    hMot3.waitDone();
+    enc1 = hMot1.getEncoderCnt();
+    enc2 = hMot3.getEncoderCnt();
+    printf("ENC1 = %d\n", enc1);
+    printf("ENC2 = %d\n", enc2);
+}
+
+void moveZ () {
+    readBuffer(bufZ, 5);
+    valZ = convert(bufZ, 5);
+    printf("Converted data - value 3: %d\n", valZ);
+    hMot4.rotAbs(valZ, 400, false, INFINITE);
+    hMot4.waitDone();
+    enc3 = hMot4.getEncoderCnt();
+}
+
+void readPoints () {
+    while(Serial.available() > 0) {
+        readBuffer(bufTheta, 5);
+        readBuffer(bufGamma, 5);
+        val1 = convert(bufTheta, 5);
+        val2 = convert(bufGamma, 5);
+        val1 = val1 * -1;
+        hMot1.rotAbs(val1, 350, false, INFINITE);
+        hMot3.rotAbs(val2, 350, false, INFINITE);
         hMot1.waitDone();
         hMot3.waitDone();
-        hMot4.waitDone();
-        sys.delay(200);
-        enc1 = hMot1.getEncoderCnt();
-        enc2 = hMot3.getEncoderCnt();
-        enc3 = hMot4.getEncoderCnt();
-        hMot1.stop();
-        hMot3.stop();
-        hMot4.stop();
-        printf("Enc1 = %d, Enc2 = %d, Enc3 = %d", enc1, enc2, enc3);
-        sys.delay(200);
     }
+    enc1 = hMot1.getEncoderCnt();
+    enc2 = hMot3.getEncoderCnt();
+    printf("Motor 1 encoder value: %d\n", enc1);
+    printf("Motor 2 encoder value: %d\n", enc2);
+}
+
+void sendEncoderValues () {
+    printf("Motor 1 encoder value: %d\n", enc1);
+    printf("Motor 2 encoder value: %d\n", enc2);
+    printf("Motor 3 encoder value: %d\n", enc3);
+}
+
+void caseSelector(int funct) {
+    switch (funct) {
+        case 1:     // Złącza
+            printf("Joints\n");
+            moveJoint();
+            break;
+        case 2:     // Pen
+            moveZ();
+            break;
+        case 3:     // Reset enkoderów
+            resetEncoder();
+            break;
+        case 4:     // Wiele punktów
+            printf("Case 4\n");
+            readPoints();
+            break;
+        case 5:     // Sterowanie klawiszami - złącza
+            break;
+        case 6:     // Sterowanie klawiszami - XY
+            break;
+        default:
+            hLED3.on();
+            hLED1.on();
+            hLED2.on();       
+            break;
+    }
+}
+
+void mainTask() {
+    initMotors();
+    initReg();
+    resetEncoder();
+    while(true){
+        hLED1.off();
+        hLED2.off();
+        hLED3.off();
+        Serial.flushRx();
+        readBuffer(bufID, 1);
+        id = (bufID[0]-48);
+        caseSelector(id);
+        clearBuffers();
+    }
+}
+
+int hMain() {
+    sys.setLogDev(&Serial);
+    sys.taskCreate(halt);
+    sys.taskCreate(mainTask);
+    return 0;
 }
