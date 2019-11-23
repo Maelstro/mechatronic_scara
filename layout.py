@@ -3,7 +3,7 @@ from styles import BORDERLESS, GREEN
 
 class ControlGui(Column):
     def __init__(self, robot):
-        super(ControlGui, self).__init__('main', self.create_children(), [1, 1, 4, 1])
+        super(ControlGui, self).__init__('main', self.create_children(), [1, 1, 4, 3])
         self.robot = robot
 
     @staticmethod
@@ -35,10 +35,12 @@ class ControlGui(Column):
         ]
 
     def log(self, text):
-        lbl_1, lbl_2, lbl_3 = [gui.elements['logger.lbl'+str(i)] for i in range(1, 4)]
+        lbl_1, lbl_2, lbl_3, lbl_4, lbl_5 = [gui.elements['logger.lbl'+str(i)] for i in range(1, 6)]
         lbl_1.text = lbl_2.text
         lbl_2.text = lbl_3.text
-        lbl_3.text = text
+        lbl_3.text = lbl_4.text
+        lbl_4.text = lbl_5.text
+        lbl_5.text = text
 
     def connect(self):
         port = gui.elements['port.ntry'].text
@@ -89,12 +91,14 @@ class ControlUnit(Column):
 
 class Logger(Column):
     def __init__(self, name, style=None):
-        super(Logger, self).__init__(name, self.get_children(name), [1, 1, 1], style)
+        super(Logger, self).__init__(name, self.get_children(name), [1, 1, 1, 1, 1], style)
 
     @staticmethod
     def get_children(name):
         return [
             Label(name+'.lbl1', ''),
             Label(name+'.lbl2', ''),
-            Label(name+'.lbl3', 'LOG')
+            Label(name+'.lbl3', ''),
+            Label(name+'.lbl4', ''),
+            Label(name+'.lbl5', 'LOG')
         ]
