@@ -81,6 +81,15 @@ class Toggle(Clickable):
         super(Toggle, self).__init__(name, style)
         self.value = initial_value
         self.text = text
+        self.__callback = lambda: None
+        self.__args = ()
+        self.__kwargs = {}
+
+    def add_callback(self, callback, *args, **kwargs):
+        if callable(callback):
+            self.__callback, self.__args, self.__kwargs = callback, args, kwargs
+        else:
+            raise TypeError('Callback needs to be callable.')
 
     def update_hover(self):
         if self.pos.is_mouse_in(x=self.pos.x+0.7*self.pos.w):
@@ -91,6 +100,7 @@ class Toggle(Clickable):
     def on_click(self):
         super(Toggle, self).on_click()
         self.value = not self.value
+        self.__callback(*self.__args, **self.__kwargs)
 
     def render(self):
         with self.style, self.pos as (w, h):

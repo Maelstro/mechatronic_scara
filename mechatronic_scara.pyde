@@ -1,9 +1,10 @@
+import time
 from pygui import *
 from robot import Robot
 from layout import ControlGui
 from styles import DEFAULT
 
-layout = ControlGui(Robot(arm_1=137.5, arm_2=90, offset=40))
+layout = ControlGui(Robot(arm_1=137.5, arm_2=100, offset=41))
 gui.root_element = layout
 
 @callback('connect.btn')
@@ -16,7 +17,7 @@ def reset():
 
 @callback('read.btn')
 def read_serial():
-    print(layout.robot.read_port())
+    layout.read_serial()
 
 @callback('Joint.ctrl.btn')
 def move_joint():
@@ -34,8 +35,16 @@ def pen_up():
 def pen_down():
     layout.pen_up(False)
 
+@callback('Joint.ctrl.tgl')
+def enable_manual():
+    if gui.elements['Joint.ctrl'].is_manual():
+        layout.robot.move_manual(enable=True)
+    else:
+        layout.robot.move_manual(enable=False)
+
 def setup():
-    size(1300, 600)
+    # size(1300, 600)
+    fullScreen()
     gui.initialize((0, 0, width, height), DEFAULT)
 
 def draw():
@@ -53,3 +62,20 @@ def mouseReleased():
 
 def keyPressed():
     gui.on_key()
+    if gui.elements['Joint.ctrl'].is_manual():
+        layout.robot.move_manual(key=key)
+    if key == 'h':
+        layout.robot.move_circle(50, 140, 10)
+    # if key == 'f':
+    #     layout.robot.move_cartesian(50, 100)
+    #     time.sleep(0.5)
+    #     layout.robot.move_cartesian(50, 160)
+    #     time.sleep(0.5)
+    #     layout.robot.move_cartesian(-70, 160)
+    #     time.sleep(0.5)
+    #     layout.robot.move_cartesian(-70, 100)
+    # if key == 'q':
+    #     while keyPressed:
+    #         # layout.robot.read_angles()
+    #         theta, gamma = layout.robot.read_angles()
+    #         layout.robot.move_angles(theta+10, gamma)

@@ -3,7 +3,7 @@ from styles import BORDERLESS, GREEN
 
 class ControlGui(Column):
     def __init__(self, robot):
-        super(ControlGui, self).__init__('main', self.create_children(), [1, 1, 4, 3])
+        super(ControlGui, self).__init__('main', self.create_children(), [1, 1, 5, 3])
         self.robot = robot
 
     @staticmethod
@@ -27,7 +27,7 @@ class ControlGui(Column):
                     ], [1, 1], GREEN),
                     Row('pendown.row', [
                         Button('down.btn', 'DOWN'),
-                        NumEntry('down.ntry', 290),
+                        NumEntry('down.ntry', 590),
                     ], [1, 1], GREEN)
                 ], [1, 1, 1, 1])
             ], [1, 1, 1]),
@@ -50,6 +50,9 @@ class ControlGui(Column):
     def reset_encoders(self):
         self.log('[ GUI ] RESETTING ENCODERS')
         self.log(self.robot.reset_encoders())
+
+    def read_serial(self):
+        self.log('[SERIAL] ' + str(self.robot.read_port()))
 
     def move_cartesian(self):
         x = gui.elements['Cartesian.ctrl.ntry1'].value
@@ -86,8 +89,15 @@ class ControlUnit(Column):
                 Label(title+'.ctrl.lbl1', labels[1]),
                 NumEntry(title+'.ctrl.ntry2', 0)
             ], [1, 2], BORDERLESS),
-            Button(title+'.ctrl.btn', button_title)
+            Button(title+'.ctrl.btn', button_title),
+            Row(title+'.ctrl.mode', [
+                Toggle(title+'.ctrl.tgl', False, 'Automatic'),
+                Label(title+'ctrl.lbl2', '  Manual')
+            ], [1.8, 1], BORDERLESS)
         ]
+
+    def is_manual(self):
+        return gui.elements[self.name+'.tgl'].value
 
 class Logger(Column):
     def __init__(self, name, style=None):
