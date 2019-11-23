@@ -16,39 +16,20 @@ char bufID[1] = {0};
 char bufTheta[5] = {0};
 char bufGamma[5] = {0};
 char bufZ[5] = {0};
-int id, val1, val2, valZ, enc1, enc2, enc3;
+char bufPos = 0;
+int id, val1, val2, valZ, enc1, enc2, enc3, k;
 hLegoSensor_simple ls(hSens6);
 hSensors::Lego_Touch sensor(ls);
 bool pressed = false;
-
-// Regulatory
-hPIDRegulator reg1, reg2, reg3;
-
-void initReg() {
-    reg1.setScale(1);
-    reg1.setKP(100);
-    reg1.setKI(0.05);
-    reg1.setKD(1000);
-    reg1.dtMs = 5;
-    reg1.stableRange = 5;
-    reg1.stableTimes = 1;
-    reg2 = reg1;
-    reg3 = reg1;
-    hMot1.attachPositionRegulator(reg1);
-    hMot3.attachPositionRegulator(reg2);
-    hMot4.attachPositionRegulator(reg3);
-}
-
 
 int convert(char buf[], int num) {
     int val = 0;
     for(int i = 1; i < num; i++)val += (buf[i]-48)*pow(10, num-i-1);
     if(buf[0]=='-')val *= -1;
-    //val = (buf[3]-48) + (buf[2]-48)*10 + (buf[1]-48)*100 + (buf[0]-48)*1000;
     return val;
 }
 void readBuffer(char buf[], int number) {
-    int k = 0;
+    k = 0;
     Serial.waitForData(INFINITE);
     while(Serial.available() > 0 && (k < number)){
         buf[k] = getchar();
@@ -69,7 +50,7 @@ void resetEncoder () {
     hMot4.resetEncoderCnt();
     hMot1.rotAbs(0,400,false, INFINITE);
     hMot3.rotAbs(0,400,false, INFINITE);
-    hMot4.rotAbs(0,400,false, INFINITE);
+    hMot4.rotAbs(0,400,true, INFINITE);
 }
 
 void initMotors() {
@@ -88,6 +69,13 @@ void halt() {
     }
 }
 
+void getAllEncoders() {
+    enc1 = hMot1.getEncoderCnt();
+    enc2 = hMot3.getEncoderCnt();
+    printf("%d\n", enc1);
+    printf("%d\n", enc2);
+}
+
 void moveJoint() {
     clearBuffers();
     readBuffer(bufTheta, 5);
@@ -97,14 +85,11 @@ void moveJoint() {
     val1 *= -1;
     printf("Converted data - value 1: %d\n", val1);
     printf("Converted data - value 2: %d\n", val2);
-    hMot1.rotAbs(val1, 200, false, INFINITE);
-    hMot3.rotAbs(val2, 200, false, INFINITE);
+    hMot1.rotAbs(val1, 500, false, INFINITE);
+    hMot3.rotAbs(val2, 500, false, INFINITE);
     hMot1.waitDone();
     hMot3.waitDone();
-    enc1 = hMot1.getEncoderCnt();
-    enc2 = hMot3.getEncoderCnt();
-    printf("ENC1 = %d\n", enc1);
-    printf("ENC2 = %d\n", enc2);
+    getAllEncoders();
 }
 
 void moveZ () {
@@ -123,15 +108,12 @@ void readPoints () {
         val1 = convert(bufTheta, 5);
         val2 = convert(bufGamma, 5);
         val1 = val1 * -1;
-        hMot1.rotAbs(val1, 350, false, INFINITE);
-        hMot3.rotAbs(val2, 350, false, INFINITE);
+        hMot1.rotAbs(val1, 500, false, INFINITE);
+        hMot3.rotAbs(val2, 300, false, INFINITE);
         hMot1.waitDone();
         hMot3.waitDone();
     }
-    enc1 = hMot1.getEncoderCnt();
-    enc2 = hMot3.getEncoderCnt();
-    printf("Motor 1 encoder value: %d\n", enc1);
-    printf("Motor 2 encoder value: %d\n", enc2);
+    getAllEncoders();
 }
 
 void sendEncoderValues () {
@@ -143,7 +125,6 @@ void sendEncoderValues () {
 void caseSelector(int funct) {
     switch (funct) {
         case 1:     // Złącza
-            printf("Joints\n");
             moveJoint();
             break;
         case 2:     // Pen
@@ -153,12 +134,25 @@ void caseSelector(int funct) {
             resetEncoder();
             break;
         case 4:     // Wiele punktów
-            printf("Case 4\n");
             readPoints();
             break;
         case 5:     // Sterowanie klawiszami - złącza
+            k = 0;
+            while(true){
+                bufPos = getchar();
+                if(bufPos=='a')hMot1.rotRel(-10,700,false,INFINITE);        // Oś 1 - lewo
+                else if(bufPos=='d')hMot1.rotRel(10,700,false,INFINITE);    // Oś 1 - prawo
+                else if(bufPos=='z')hMot3.rotRel(10,700,false,INFINITE);    // Oś 2 - lewo
+                else if(bufPos=='c')hMot3.rotRel(-10,700,false,INFINITE);   // Oś 2 - prawo
+                else if(bufPos=='q')break;
+                bufPos = 0;
+            }
             break;
-        case 6:     // Sterowanie klawiszami - XY
+        // case 6:     // Sterowanie klawiszami - XY
+        //     break;
+        case 7:
+            // Wyślij pozycję
+            getAllEncoders();
             break;
         default:
             hLED3.on();
@@ -170,7 +164,6 @@ void caseSelector(int funct) {
 
 void mainTask() {
     initMotors();
-    initReg();
     resetEncoder();
     while(true){
         hLED1.off();
