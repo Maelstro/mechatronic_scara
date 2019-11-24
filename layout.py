@@ -1,5 +1,5 @@
 from pygui import *
-from styles import BORDERLESS, GREEN
+from styles import BORDERLESS
 
 class ControlGui(Column):
     def __init__(self, robot):
@@ -9,7 +9,7 @@ class ControlGui(Column):
     @staticmethod
     def create_children():
         return [
-            Label('title', 'DRAWING SCARA CONTROL STATION'),
+            Label('title', 22*' '+'DRAWING SCARA CONTROL STATION'),
             Row('up_row', [
                 Label('port.lbl', 'serial port'),
                 Entry('port.ntry', 'COM6'),
@@ -24,23 +24,29 @@ class ControlGui(Column):
                     Row('penup.row', [
                         Button('up.btn', 'UP'),
                         NumEntry('up.ntry', 0),
-                    ], [1, 1], GREEN),
-                    Row('pendown.row', [
                         Button('down.btn', 'DOWN'),
                         NumEntry('down.ntry', 590),
-                    ], [1, 1], GREEN)
-                ], [1, 1, 1, 1])
+                    ], [1, 1, 1, 1]),
+                    Row('sqare.row', [
+                        Button('square.btn', 'Rect'),
+                        NumEntry('square.p0', 0),
+                        NumEntry('square.p1', 0),
+                        NumEntry('square.p2', 0),
+                        NumEntry('square.p3', 0),
+                    ], [2, 1, 1, 1, 1]),
+                    Row('circle.row', [
+                        Button('circle.btn', 'Circle'),
+                        NumEntry('circle.p0', 0),
+                        NumEntry('circle.p1', 0),
+                        NumEntry('circle.p2', 0),
+                    ], [2, 1, 1, 1])
+                ], [1, 1, 1, 1, 1])
             ], [1, 1, 1]),
             Logger('logger', BORDERLESS)
         ]
 
     def log(self, text):
-        lbl_1, lbl_2, lbl_3, lbl_4, lbl_5 = [gui.elements['logger.lbl'+str(i)] for i in range(1, 6)]
-        lbl_1.text = lbl_2.text
-        lbl_2.text = lbl_3.text
-        lbl_3.text = lbl_4.text
-        lbl_4.text = lbl_5.text
-        lbl_5.text = text
+        gui.elements['logger'].log(text)
 
     def connect(self):
         port = gui.elements['port.ntry'].text
@@ -54,6 +60,12 @@ class ControlGui(Column):
     def read_serial(self):
         self.log('[SERIAL] ' + str(self.robot.read_port()))
 
+    def pen_up(self, up):
+        entry = 'up.ntry' if up else 'down.ntry'
+        steps = int(gui.elements[entry].value)
+        self.log('[ GUI ] MOVING PEN TO ' + str(steps))
+        self.log(self.robot.move_pen(steps))
+
     def move_cartesian(self):
         x = gui.elements['Cartesian.ctrl.ntry1'].value
         y = gui.elements['Cartesian.ctrl.ntry2'].value
@@ -66,11 +78,13 @@ class ControlGui(Column):
         self.log('[ GUI ] SENDING SERIAL ANGLES MOVE: ' + str(theta) + ', ' + str(gamma))
         self.log(self.robot.move_angles(theta, gamma))
 
-    def pen_up(self, up):
-        entry = 'up.ntry' if up else 'down.ntry'
-        steps = int(gui.elements[entry].value)
-        self.log('[ GUI ] MOVING PEN TO ' + str(steps))
-        self.log(self.robot.move_pen(steps))
+    def move_square(self):
+        x_1, y_1, x_n, y_n = [gui.elements['square.p'+str(i)].value for i in range(4)]
+        self.log(self.robot.move_square(x_1, y_1, x_n, y_n))
+
+    def move_circle(self):
+        r, x, y = [gui.elements['circle.p'+str(i)].value for i in range(3)]
+        self.log(self.robot.move_circle(r, x, y))
 
 class ControlUnit(Column):
     def __init__(self, title, labels, button_title):
@@ -101,7 +115,7 @@ class ControlUnit(Column):
 
 class Logger(Column):
     def __init__(self, name, style=None):
-        super(Logger, self).__init__(name, self.get_children(name), [1, 1, 1, 1, 1], style)
+        super(Logger, self).__init__(name, self.get_children(name), [1 for _ in range(1, 8)], style)
 
     @staticmethod
     def get_children(name):
@@ -110,5 +124,17 @@ class Logger(Column):
             Label(name+'.lbl2', ''),
             Label(name+'.lbl3', ''),
             Label(name+'.lbl4', ''),
-            Label(name+'.lbl5', 'LOG')
+            Label(name+'.lbl5', ''),
+            Label(name+'.lbl6', ''),
+            Label(name+'.lbl7', '')
         ]
+
+    def log(self, text):
+        lbl_1, lbl_2, lbl_3, lbl_4, lbl_5, lbl_6, lbl_7 = self._children
+        lbl_1.text = lbl_2.text
+        lbl_2.text = lbl_3.text
+        lbl_3.text = lbl_4.text
+        lbl_4.text = lbl_5.text
+        lbl_5.text = lbl_6.text
+        lbl_6.text = lbl_7.text
+        lbl_7.text = text

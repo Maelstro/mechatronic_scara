@@ -19,14 +19,6 @@ def reset():
 def read_serial():
     layout.read_serial()
 
-@callback('Joint.ctrl.btn')
-def move_joint():
-    layout.move_angles()
-
-@callback('Cartesian.ctrl.btn')
-def move_cartesian():
-    layout.move_cartesian()
-
 @callback('up.btn')
 def pen_up():
     layout.pen_up(True)
@@ -35,16 +27,39 @@ def pen_up():
 def pen_down():
     layout.pen_up(False)
 
+@callback('Joint.ctrl.btn')
+def move_joint():
+    layout.move_angles()
+
+@callback('Cartesian.ctrl.btn')
+def move_cartesian():
+    layout.move_cartesian()
+
 @callback('Joint.ctrl.tgl')
-def enable_manual():
+def enable_manual_joint():
     if gui.elements['Joint.ctrl'].is_manual():
-        layout.robot.move_manual(enable=True)
+        layout.robot.move_manual_joint(enable=True)
     else:
-        layout.robot.move_manual(enable=False)
+        layout.robot.move_manual_joint(enable=False)
+
+@callback('Cartesian.ctrl.tgl')
+def enable_manual_cartesian():
+    if gui.elements['Cartesian.ctrl'].is_manual():
+        layout.robot.move_manual_cartesian(enable=True)
+    else:
+        layout.robot.move_manual_cartesian(enable=False)
+
+@callback('square.btn')
+def draw_square():
+    layout.move_square()
+
+@callback('circle.btn')
+def draw_circle():
+    layout.move_circle()
 
 def setup():
     # size(1300, 600)
-    fullScreen()
+    fullScreen(P3D)
     gui.initialize((0, 0, width, height), DEFAULT)
 
 def draw():
@@ -63,19 +78,8 @@ def mouseReleased():
 def keyPressed():
     gui.on_key()
     if gui.elements['Joint.ctrl'].is_manual():
-        layout.robot.move_manual(key=key)
+        layout.robot.move_manual_joint(key=key)
+    if gui.elements['Cartesian.ctrl'].is_manual():
+        layout.robot.move_manual_cartesian(key=key)
     if key == 'h':
-        layout.robot.move_circle(50, 140, 10)
-    # if key == 'f':
-    #     layout.robot.move_cartesian(50, 100)
-    #     time.sleep(0.5)
-    #     layout.robot.move_cartesian(50, 160)
-    #     time.sleep(0.5)
-    #     layout.robot.move_cartesian(-70, 160)
-    #     time.sleep(0.5)
-    #     layout.robot.move_cartesian(-70, 100)
-    # if key == 'q':
-    #     while keyPressed:
-    #         # layout.robot.read_angles()
-    #         theta, gamma = layout.robot.read_angles()
-    #         layout.robot.move_angles(theta+10, gamma)
+        layout.robot.draw_circle_in_a_square(*(gui.elements['square.p'+str(i)].value for i in range(4)))

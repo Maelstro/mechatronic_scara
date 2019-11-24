@@ -22,16 +22,4 @@ BORDERLESS = Style(Colors(background=(20, 20, 20),
                        border=2,
                        rounding=5,
                        padding=0,
-                       spacing=0)
-
-GREEN = Style(Colors(background=(20, 20, 20),
-                        fill=(204, 196, 28),
-                        hovered=(178, 172, 33),
-                        border=(127, 123, 24),
-                        clicked=(127, 123, 24),
-                        focused=(170, 170, 193),
-                        text=(20, 20, 20)),
-                        border=2,
-                        rounding=5,
-                        padding=0,
-                        spacing=15)
+                       spacing=10)
