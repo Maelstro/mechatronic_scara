@@ -40,7 +40,7 @@ bool isCalculated = false;
 // Regulator PID - próby dostrojenia (?)
 hPIDRegulator reg1, reg2, reg3;
 
-void initRegulator() {
+void initRegulator() {      // Inicjalizacja parametrów regulatora PID do silników
     reg1.setScale(1);
     reg1.setKP(30.0);
     reg1.setKI(0.1);
@@ -57,7 +57,7 @@ void initRegulator() {
 
 // Sterowanie X-Y
 
-void angleToStep() {
+void angleToStep() {        // Konwersja z wartości kątów na kroki silnika
     if(theta<0 || theta>180)printf("Theta out of range: %f\n", theta);
     if(gamma2< (-120) || gamma2>120)printf("Gamma out of range: %f\n", theta);
     else {
@@ -66,7 +66,7 @@ void angleToStep() {
     }
 }
 
-void convertCartesian(float pos_x, float pos_y) {
+void convertCartesian(float pos_x, float pos_y) {       // Konwersja współrzędnych kartezjańskich na kroki silnika
     if(pos_x<0)pos_x-=10;
     if(pos_x>0)pos_x+=10;
     if(abs(pos_x)>100)printf("Position X out of range: %d\n", pos_x);
@@ -95,8 +95,8 @@ void convertCartesian(float pos_x, float pos_y) {
 // 2. Okrąg
 // 3. Okrąg w kwadrat wpisany
 
-void trajectoryLine(float x1, float y1, float x2, float y2, int num) {
-    float a, b, x_diff, y_diff, x_tmp;
+void trajectoryLine(float x1, float y1, float x2, float y2, int num) {      // Rysowanie linii
+    float a, b, x_diff, y_diff, x_tmp;                                      // 2 punkty -> dzielenie prostej na 'num' punktów
     if((x1-x2)==0) {
         if(y1 != y2){
             y_diff = (y2-y1)/num;
@@ -104,7 +104,7 @@ void trajectoryLine(float x1, float y1, float x2, float y2, int num) {
                 if(i!=0)y1 += y_diff;
                 printf("Punkt nr %d\n",point_num++);
                 printf("X,Y : %f, %f\n", x1, y1);
-                convertCartesian(x1, y1);
+                convertCartesian(x1, y1);                                   // Przemieszczanie się do danego punktu
             }
         }
     }
@@ -121,23 +121,25 @@ void trajectoryLine(float x1, float y1, float x2, float y2, int num) {
     }
 }
 
-void trajectoryRect(float x1, float y1, float x2, float y2, int num_1side) {
-    convertCartesian(x1, y1);
-    sys.delay_ms(5000);
-    hMot4.rotAbs(penDown, 500, true, INFINITE);
+void trajectoryRect(float x1, float y1, float x2, float y2, int num_1side) {    // Rysowanie prostokąta
+    convertCartesian(x1, y1);       // Przemieszczenie się do punktu pierwszego
+    hMot1.waitDone();               // Oczekiwanie na koniec ruchu
+    hMot3.waitDone();
     sys.delay_ms(500);
-    trajectoryLine(x1, y1, x2, y1, num_1side);
+    hMot4.rotAbs(penDown, 500, true, INFINITE);         // Opuszczenie pisaka
+    sys.delay_ms(500);
+    trajectoryLine(x1, y1, x2, y1, num_1side);          // Początek rysowania linii
     trajectoryLine(x2, y1, x2, y2, int(num_1side/2));
     trajectoryLine(x2, y2, x1, y2, num_1side);
     trajectoryLine(x1, y2, x1, y1, int(num_1side/2));
     hMot1.waitDone();
     hMot3.waitDone();
     sys.delay_ms(500);
-    hMot4.rotAbs(0, 700, true, INFINITE);
+    hMot4.rotAbs(0, 700, true, INFINITE);               // Podniesienie pisaka
     printf("Finished drawing a rectangle.\n");
 }
 
-void trajectoryCircle(float r, float x, float y, int num) {
+void trajectoryCircle(float r, float x, float y, int num) {     // Rysowanie okręgu - obliczenia dobre, jakość ruchu zła
     float pos_X, pos_Y;
     pos_X = pos_Y = 0;
     for (int i=1; i <=num; i++){
@@ -161,8 +163,8 @@ void trajectoryCircle(float r, float x, float y, int num) {
     printf("Finished drawing a circle.\n");
 }
 
-void CircleInASquare(float x1, float y1, float x2, float y2, int num_sq, int num_circle) {
-    trajectoryRect(x1, y1, x2, y2, num_sq);
+void CircleInASquare(float x1, float y1, float x2, float y2, int num_sq, int num_circle) {      // Okrąg wpisany w prostokąt
+    trajectoryRect(x1, y1, x2, y2, num_sq);                                                     // Analogicznie do ruchu po okręgu, bardzo zła jakość rysowania okręgu
     float radius = float(abs(x2-x1)/2);
     sys.delay_ms(500);
     if(x2>x1 && y2>y1)trajectoryCircle(radius, x1+radius, y1+radius, num_circle);
@@ -177,7 +179,7 @@ void CircleInASquare(float x1, float y1, float x2, float y2, int num_sq, int num
 
 // Sterowanie XY - tryb ręczny
 
-void StepToCartesian() {
+void StepToCartesian() {        // Konwersja z pozycji silników na współrzędne kartezjańskie z uwzględnieniem offsetu na osi Y
     val1 = hMot1.getEncoderCnt();
     val2 = hMot3.getEncoderCnt();
     theta = ((-1*val1)/14.0)*(M_PI/180);
@@ -185,44 +187,44 @@ void StepToCartesian() {
     printf("Theta, gammma: %f, %f\n", theta, gamma2);
     currentX = (arm_1*cos(theta)+arm_2*cos(theta+gamma2));
     currentY = (arm_1*sin(theta)+arm_2*sin(theta+gamma2)) - offset;
-    isCalculated = true;
+    isCalculated = true;        // Pozycja przeliczana jest tylko raz
 }
 
-void Y_Up() {
+void Y_Up() {       // Ruch do przodu wzdłuż osi Y
     if(isCalculated==false)StepToCartesian();
     printf("Current XY: %f, %f\n", currentX, currentY);
     currentY = currentY + 5.0;
     convertCartesian(currentX, currentY);
 }
 
-void Y_Down() {
+void Y_Down() {     // Ruch do tyłu wzdłuż osi Y
     if(isCalculated==false)StepToCartesian();
     printf("Current XY: %f, %f\n", currentX, currentY);
     currentY = currentY - 5.0;
     convertCartesian(currentX, currentY);
 }
 
-void X_Left() {
+void X_Left() {     // Ruch w lewo wzdłuż osi X
     if(isCalculated==false)StepToCartesian();
     printf("Current XY: %f, %f\n", currentX, currentY);
     currentX = currentX - 5.0;
     convertCartesian(currentX, currentY);
 }
 
-void X_Right() {
+void X_Right() {    // Ruch w prawo wzdłuż osi X
     if(isCalculated)StepToCartesian();
     printf("Current XY: %f, %f\n", currentX, currentY);
     currentX = currentX + 5.0;
     convertCartesian(currentX, currentY);
 }
 
-int convert(char buf[], int num) {
+int convert(char buf[], int num) {      // Konwersja wartości odczytanej na porcie szeregowym
     int val = 0;
     for(int i = 1; i < num; i++)val += (buf[i]-48)*pow(10, num-i-1);
     if(buf[0]=='-')val *= -1;
     return val;
 }
-void readBuffer(char buf[], int number) {
+void readBuffer(char buf[], int number) {       // Odczyt bufora, 'number' znaków
     k = 0;
     Serial.waitForData(INFINITE);
     while(Serial.available() > 0 && (k < number)){
@@ -231,18 +233,18 @@ void readBuffer(char buf[], int number) {
     }
 }
 
-void clearBuffers() {
+void clearBuffers() {       // Czyszczenie bufora
     bufID[0]=0;
     for(int i=0;i<5;i++){
         bufTheta[i] = bufGamma[i] = bufZ[0] = 0;
     }
 }
 
-void resetEncoder () {
+void resetEncoder () {      // Reset enkoderów
     hMot1.resetEncoderCnt();
     hMot3.resetEncoderCnt();
     hMot4.resetEncoderCnt();
-    hMot1.rotAbs(0,400,false, INFINITE);
+    hMot1.rotAbs(0,400,false, INFINITE);        // Upewnienie się, że silniki nie poruszają się
     hMot3.rotAbs(0,400,false, INFINITE);
     hMot4.rotAbs(0,400,false, INFINITE);
     hMot1.waitDone();
@@ -251,13 +253,13 @@ void resetEncoder () {
 }
 
 void initMotors() {
-    hMot1.setEncoderPolarity(Polarity::Reversed);       //Motor nr 1 - przy podstawie
-    hMot3.setEncoderPolarity(Polarity::Reversed);       //Motor nr 2 - człon nr 2
-    hMot4.setEncoderPolarity(Polarity::Reversed);       //Motor nr 3 - oś Z
+    hMot1.setEncoderPolarity(Polarity::Reversed);       // Motor nr 1 - przy podstawie
+    hMot3.setEncoderPolarity(Polarity::Reversed);       // Motor nr 2 - człon nr 2
+    hMot4.setEncoderPolarity(Polarity::Reversed);       // Motor nr 3 - oś Z
     resetEncoder();
 }
 
-void halt() {
+void halt() {       // Stop awaryjny
     while(true){
         pressed = sensor.isPressed();
         if(pressed==true) {
@@ -266,7 +268,7 @@ void halt() {
     }
 }
 
-void getAllEncoders() {
+void getAllEncoders() {         // Odczyt wartości z enkoderów
     enc1 = hMot1.getEncoderCnt();
     enc2 = hMot3.getEncoderCnt();
     enc3 = hMot4.getEncoderCnt();
@@ -275,7 +277,7 @@ void getAllEncoders() {
     printf("%d\n", enc3);
 }
 
-void moveJoint() {
+void moveJoint() {      // Ruch we współrzędnych złączowych, wejście - ilość kroków
     clearBuffers();
     readBuffer(bufTheta, 5);
     readBuffer(bufGamma, 5);
@@ -291,7 +293,7 @@ void moveJoint() {
     getAllEncoders();
 }
 
-void moveZ () {
+void moveZ () {         // Ruch pisakiem góra-dół
     readBuffer(bufZ, 5);
     valZ = convert(bufZ, 5);
     printf("Converted data - value 3: %d\n", valZ);
@@ -300,7 +302,7 @@ void moveZ () {
     enc3 = hMot4.getEncoderCnt();
 }
 
-void readPoints () {
+void readPoints () {    // Ruch do wielu punktów, obecnie nieużywane
     while(Serial.available() > 0) {
         readBuffer(bufTheta, 5);
         readBuffer(bufGamma, 5);
@@ -318,13 +320,13 @@ void readPoints () {
     printf("%d\n");
 }
 
-void sendEncoderValues () {
+void sendEncoderValues () {     // Wysłanie wartości z enkoderów
     printf("Motor 1 encoder value: %d\n", enc1);
     printf("Motor 2 encoder value: %d\n", enc2);
     printf("Motor 3 encoder value: %d\n", enc3);
 }
 
-void caseSelector(int funct) {
+void caseSelector(int funct) {      // Wybór funkcji do wykonania dla podanego ID
     switch (funct) {
         case 0:     // do punktu XY
             readBuffer(bufX, 5);
@@ -389,8 +391,7 @@ void caseSelector(int funct) {
                 bufPos = 0;
             }
             break;
-        case 7:
-            // Wyślij pozycję
+        case 7:     // Wyślij pozycję
             getAllEncoders();
             break;
         case 8:     // Rysuj okrąg
@@ -421,25 +422,25 @@ void caseSelector(int funct) {
     }
 }
 
-void mainTask() {
-    initMotors();
-    resetEncoder();
-    initRegulator();
+void mainTask() {       // Główny task wykonywany przez program
+    initMotors();       // Inicjalizacja parametrów pracy silników
+    resetEncoder();     // Reset enkoderów
+    initRegulator();    // Inicjalizacja regulatorów
     while(true){
         hLED1.off();
         hLED2.off();
         hLED3.off();
-        Serial.flushRx();
-        readBuffer(bufID, 1);
-        id = (bufID[0]-48);
-        caseSelector(id);
-        clearBuffers();
+        Serial.flushRx();   // Czyszczenie bufora ze śmieci
+        readBuffer(bufID, 1);   // Odczyt ID funkcji
+        id = (bufID[0]-48);     // Zdekodowanie odczytanego ID
+        caseSelector(id);       // Wybór funkcji do działania
+        clearBuffers();         // Czyszczenie buforów
     }
 }
 
 int hMain() {
-    sys.setLogDev(&Serial);
-    sys.taskCreate(halt);
-    sys.taskCreate(mainTask);
+    sys.setLogDev(&Serial);     // Wyjście na port szeregowy
+    sys.taskCreate(halt);       // Utworzenie wątku z E-Stopem
+    sys.taskCreate(mainTask);   // Utworzenie wątku z funkcją główną
     return 0;
 }
